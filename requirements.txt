@@ -1,0 +1,16 @@
+opencv-python
+Pillow
+pandas
+torch
+torchvision
+scipy
+pylab-sdk
+requests
+matplotlib
+jupyter
+ipywidgets
+
+isort
+black
+pre-commit
+tqdm

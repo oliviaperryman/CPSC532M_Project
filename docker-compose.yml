@@ -1,0 +1,9 @@
+version: "3.9"
+services:
+  shell:
+    build:
+      context: .
+      target: dev
+    entrypoint: bash
+    volumes:
+      - ./:/src
