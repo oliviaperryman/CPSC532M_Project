@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-image = cv2.imread("src/cat.jpg")
+image = cv2.imread("cat.jpg")
 
 # Grayscale
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -22,4 +22,4 @@ print("Number of Contours found = " + str(len(contours)))
 # -1 signifies drawing all contours
 cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
 
-cv2.imwrite("src/Contours.png", image)
+cv2.imwrite("catContour.png", image)
