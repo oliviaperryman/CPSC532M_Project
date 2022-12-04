@@ -1,10 +1,11 @@
-FROM python:3 as dev
+FROM nvcr.io/nvidia/pytorch:20.10-py3 as dev
 WORKDIR /src
 
-COPY . .
+COPY /src /src
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get -y update
-RUN apt-get install ffmpeg libsm6 libxext6  -y
+# RUN apt-get install ffmpeg libsm6 libxext6  -y
 
 COPY requirements.txt requirements.txt
 RUN pip3 install --upgrade pip setuptools wheel

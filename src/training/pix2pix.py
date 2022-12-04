@@ -1,30 +1,12 @@
 import torch
-import torchvision.transforms as transforms
-import numpy as np
-from custom_transforms import (
-    normalize,
-    random_crop,
-    random_jittering_mirroring,
-)
 from models import Discriminator, UnetGenerator
 from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from torchvision.datasets import ImageFolder
 from custom_datasets import afhqDataset
+import torchvision
+from tqdm import tqdm
 
-
-# class Train(object):
-#     def __call__(self, dl_data):
-#         # 2 images processed by DL to resize to 286x286, and label
-#         # image, contour, label = dl_data
-#         # tar = np.array(image).astype(np.float32)
-#         # inp = np.array(contour).astype(np.float32)
-#         # inp, tar = random_jittering_mirroring(inp, tar)
-#         # inp, tar = normalize(inp, tar)
-#         # image_a = torch.from_numpy(inp.copy().transpose((2, 0, 1)))
-#         # image_b = torch.from_numpy(tar.copy().transpose((2, 0, 1)))
-#         # return image_a, image_b, label
 
 
 # custom weights initialization called on generator and discriminator
@@ -50,7 +32,6 @@ def generator_loss(generated_image, target_img, G, real_target):
     gen_loss = adversarial_loss(G, real_target)
     l1_l = l1_loss(generated_image, target_img)
     gen_total_loss = gen_loss + (100 * l1_l)
-    # print(gen_loss)
     return gen_total_loss
 
 
@@ -62,8 +43,7 @@ def discriminator_loss(output, label):
 
 def train(num_epochs, generator, discriminator, train_dl, G_optimizer, D_optimizer):
     D_loss_plot, G_loss_plot = [], []
-    for epoch in range(1, num_epochs + 1):
-
+    for epoch in tqdm(range(1, num_epochs + 1)):
         D_loss_list, G_loss_list = [], []
 
         for (input_img, target_img, label) in train_dl:
@@ -75,8 +55,6 @@ def train(num_epochs, generator, discriminator, train_dl, G_optimizer, D_optimiz
             # ground truth labels real and fake
             real_target = Variable(torch.ones(input_img.size(0), 1, 30, 30).to(device))
             fake_target = Variable(torch.zeros(input_img.size(0), 1, 30, 30).to(device))
-
-            print(input_img.shape)
 
             # generator forward pass
             generated_image = generator(input_img)
@@ -110,44 +88,63 @@ def train(num_epochs, generator, discriminator, train_dl, G_optimizer, D_optimiz
             # compute gradients and run optimizer step
             G_loss.backward()
             G_optimizer.step()
+            
+
+        # Save checkpoints
+        if epoch % 5 == 0:
+            print("saving model")
+            # test(generator, train_dl, epoch, device)  # TODO change to valid_dl
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "generator_state_dict": generator.state_dict(),
+                    "G_optimizer_state_dict": G_optimizer.state_dict(),
+                    "discriminator_state_dict": discriminator.state_dict(),
+                    "D_optimizer_state_dict": D_optimizer.state_dict(),
+                    "G_loss": G_loss,
+                    "D_loss": D_total_loss,
+                },
+                f"checkpoints/models_{epoch}.pth",
+            )
+
     return generator, discriminator
 
 
-def test(val_dl, epoch):
-    for (inputs, targets), _ in val_dl:
-        inputs = inputs.to(device)
+def test(generator, val_dl, epoch, device):
+    for input_img, target_img, label in val_dl:
+        inputs = input_img.to(device)
         generated_output = generator(inputs)
         save_images(
             generated_output.data[:10],
-            "sample_%d" % epoch + ".png",
+            "results/sample_%d" % epoch + ".png",
             nrow=5,
             normalize=True,
         )
 
 
-if __name__ == "__main__":
-    # DIR = "edges2shoes/train_data/"
-    batch_size = 1
+def save_images(images, path, nrow=8, normalize=True):
+    if normalize:
+        images = images.mul(0.5).add(0.5)
+    grid = torchvision.utils.make_grid(images, nrow=nrow, padding=2)
+    torchvision.utils.save_image(grid, path)
 
-    # train_ds = ImageFolder(DIR, transform=transforms.Compose([Train()]))
+
+if __name__ == "__main__":
+    batch_size = 32
+
     train_ds = afhqDataset()
-    train_dl = DataLoader(train_ds, batch_size)
+    train_dl = DataLoader(train_ds, batch_size, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(torch.cuda.device_count())
+    print("CUDA device count:", torch.cuda.device_count())
     generator = (
         UnetGenerator(3, 3, 64, norm_layer=nn.BatchNorm2d, use_dropout=False)
-        # .cuda()
-        .cpu()
+        .cuda()
         .float()
     )
     init_weights(generator, "normal", scaling=0.02)
-    generator = torch.nn.DataParallel(generator)  # multi-GPUs
 
-    # The following things were not defined in the tutorial, so I guessed
-
-    # discriminator = Discriminator(6, 64, norm_layer=nn.BatchNorm2d).cuda().float()
-    discriminator = Discriminator(6, 64, norm_layer=nn.BatchNorm2d).cpu().float()
+    discriminator = Discriminator(6, 64, norm_layer=nn.BatchNorm2d).cuda().float()
 
     G_optimizer = torch.optim.Adam(
         generator.parameters(), lr=0.0002, betas=(0.5, 0.999)
@@ -157,7 +154,5 @@ if __name__ == "__main__":
     )
 
     generator, discriminator = train(
-        1, generator, discriminator, train_dl, G_optimizer, D_optimizer
+        200, generator, discriminator, train_dl, G_optimizer, D_optimizer
     )
-
-    test(train_dl, 1)

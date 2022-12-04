@@ -14,27 +14,18 @@ def random_crop(image, dim):
 
 
 def random_jittering_mirroring(input_image, target_image, height=286, width=286):
-
-    # remove resizing to 286x286 if input and target is given as 286
-    # input_image = cv2.resize(
-    #     input_image, (height, width), interpolation=cv2.INTER_NEAREST
-    # )
-    # target_image = cv2.resize(
-    #     target_image, (height, width), interpolation=cv2.INTER_NEAREST
-    # )
+    input_image = cv2.resize(
+        input_image, (height, width), interpolation=cv2.INTER_NEAREST
+    )
+    target_image = cv2.resize(
+        target_image, (height, width), interpolation=cv2.INTER_NEAREST
+    )
 
     # cropping (random jittering) to 256x256
-    print(input_image.shape)
-    print(target_image.shape)
-    print("_______")
     stacked_image = np.stack([input_image, target_image], axis=0)
-    cropped_image = random_crop(stacked_image, dim=[256, 256, 3])
+    cropped_image = random_crop(stacked_image, dim=list(input_image.shape))
 
     input_image, target_image = cropped_image[0], cropped_image[1]
-    print(input_image.shape)
-    print(target_image.shape)
-    print("_______")
-    # print(input_image.shape)
     if torch.rand(()) > 0.5:
         # random mirroring
         input_image = np.fliplr(input_image)

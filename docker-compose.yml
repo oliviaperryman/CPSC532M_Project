@@ -5,5 +5,15 @@ services:
       context: .
       target: dev
     entrypoint: bash
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     volumes:
       - ./:/src
+      - ./afhq:/afhq
+      - ./checkpoints:/checkpoints
+      - ./results:/results
