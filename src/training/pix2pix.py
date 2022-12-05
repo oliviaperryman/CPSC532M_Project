@@ -1,12 +1,13 @@
+import glob
+
 import torch
+import torchvision
+from custom_datasets import afhqDataset
 from models import Discriminator, UnetGenerator
 from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from custom_datasets import afhqDataset
-import torchvision
 from tqdm import tqdm
-
 
 
 # custom weights initialization called on generator and discriminator
@@ -41,12 +42,20 @@ def discriminator_loss(output, label):
     return disc_loss
 
 
-def train(num_epochs, generator, discriminator, train_dl, G_optimizer, D_optimizer):
+def train(
+    num_epochs,
+    generator,
+    discriminator,
+    train_dl,
+    G_optimizer,
+    D_optimizer,
+    last_epoch=1,
+):
     D_loss_plot, G_loss_plot = [], []
-    for epoch in tqdm(range(1, num_epochs + 1)):
+    for epoch in tqdm(range(last_epoch, num_epochs + 1)):
         D_loss_list, G_loss_list = [], []
 
-        for (input_img, target_img, label) in train_dl:
+        for (input_img, target_img, label) in tqdm(train_dl):
 
             D_optimizer.zero_grad()
             input_img = input_img.to(device)
@@ -88,10 +97,9 @@ def train(num_epochs, generator, discriminator, train_dl, G_optimizer, D_optimiz
             # compute gradients and run optimizer step
             G_loss.backward()
             G_optimizer.step()
-            
 
         # Save checkpoints
-        if epoch % 5 == 0:
+        if epoch % 1 == 0:
             print("saving model")
             # test(generator, train_dl, epoch, device)  # TODO change to valid_dl
             torch.save(
@@ -137,6 +145,7 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("CUDA device count:", torch.cuda.device_count())
+    # torch.cuda.empty_cache()
     generator = (
         UnetGenerator(3, 3, 64, norm_layer=nn.BatchNorm2d, use_dropout=False)
         .cuda()
@@ -145,6 +154,7 @@ if __name__ == "__main__":
     init_weights(generator, "normal", scaling=0.02)
 
     discriminator = Discriminator(6, 64, norm_layer=nn.BatchNorm2d).cuda().float()
+    init_weights(discriminator, "normal", scaling=0.02)
 
     G_optimizer = torch.optim.Adam(
         generator.parameters(), lr=0.0002, betas=(0.5, 0.999)
@@ -152,7 +162,30 @@ if __name__ == "__main__":
     D_optimizer = torch.optim.Adam(
         discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999)
     )
+    epoch = 1
+    resume = True
+    if resume:
+        print("loading model")
+        checkpoints = sorted(glob.glob("checkpoints/*.pth"))
+        print(checkpoints[-1])
+        checkpoint = torch.load(checkpoints[-1])
+        generator.load_state_dict(checkpoint["generator_state_dict"])
+        discriminator.load_state_dict(checkpoint["discriminator_state_dict"])
+        G_optimizer.load_state_dict(checkpoint["G_optimizer_state_dict"])
+        D_optimizer.load_state_dict(checkpoint["D_optimizer_state_dict"])
+        epoch = checkpoint["epoch"]
+        G_loss = checkpoint["G_loss"]
+        D_loss = checkpoint["D_loss"]
+        generator.eval()
+        discriminator.eval()
+    print(epoch)
 
-    generator, discriminator = train(
-        200, generator, discriminator, train_dl, G_optimizer, D_optimizer
+    train(
+        200,
+        generator,
+        discriminator,
+        train_dl,
+        G_optimizer,
+        D_optimizer,
+        last_epoch=epoch,
     )
