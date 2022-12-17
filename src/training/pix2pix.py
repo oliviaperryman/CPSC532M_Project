@@ -66,7 +66,7 @@ def train(
             fake_target = Variable(torch.zeros(input_img.size(0), 1, 30, 30).to(device))
 
             # generator forward pass
-            generated_image = generator(input_img)
+            generated_image = generator((input_img, label))
 
             # train discriminator with fake/generated images
             disc_inp_fake = torch.cat((input_img, generated_image), 1)
@@ -112,7 +112,7 @@ def train(
                     "G_loss": G_loss,
                     "D_loss": D_total_loss,
                 },
-                f"checkpoints/models_{epoch}.pth",
+                f"checkpoints_pixandtext/models_{epoch}.pth",
             )
 
     return generator, discriminator
@@ -138,7 +138,7 @@ def save_images(images, path, nrow=8, normalize=True):
 
 
 if __name__ == "__main__":
-    batch_size = 32
+    batch_size = 4
 
     train_ds = afhqDataset()
     train_dl = DataLoader(train_ds, batch_size, shuffle=True)
@@ -163,10 +163,10 @@ if __name__ == "__main__":
         discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999)
     )
     epoch = 1
-    resume = True
+    resume = False
     if resume:
         print("loading model")
-        checkpoints = sorted(glob.glob("checkpoints/*.pth"))
+        checkpoints = sorted(glob.glob("checkpoints_pixandtext/*.pth"))
         print(checkpoints[-1])
         checkpoint = torch.load(checkpoints[-1])
         generator.load_state_dict(checkpoint["generator_state_dict"])

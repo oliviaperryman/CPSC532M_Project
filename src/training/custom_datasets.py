@@ -2,16 +2,13 @@
 
 import glob
 import os
-import numpy as np
 
 import cv2
+import numpy as np
 import torch
 import torch.nn as nn
+from custom_transforms import random_jittering_mirroring
 from torch.utils.data import DataLoader, Dataset
-
-from custom_transforms import (
-    random_jittering_mirroring,
-)
 
 """
 Create the pytorch datset for the animal-faces hq
@@ -43,8 +40,13 @@ class afhqDataset(Dataset):
         contour = np.array(contour)
         contour = contour.astype(np.float32)
 
+        label_dict = {"cat": 0, "dog": 1, "wild": 2}
+
         # Label
-        label = image_path.split("/")[-2]
+        label = label_dict[image_path.split("/")[-2]]
+        label = np.array(label)
+        label = label.astype(np.float32)
+        label = torch.from_numpy(label)
 
         inp, tar = random_jittering_mirroring(contour, image)
         inp = torch.from_numpy(inp.copy().transpose((2, 0, 1)))

@@ -87,6 +87,7 @@ class UnetSkipConnectionBlock(nn.Module):
     ):
         super(UnetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
+        self.innermost = innermost
         if input_nc is None:
             input_nc = outer_nc
         downconv = nn.Conv2d(
@@ -105,8 +106,10 @@ class UnetSkipConnectionBlock(nn.Module):
             up = [uprelu, upconv, nn.Tanh()]
             model = down + [submodule] + up
         elif innermost:
+            # Add label to innermost layer, so increase input channel size by 1
+            # (512,1,1) -> (513,1,1)
             upconv = nn.ConvTranspose2d(
-                inner_nc, outer_nc, kernel_size=4, stride=2, padding=1, bias=False
+                inner_nc + 1, outer_nc, kernel_size=4, stride=2, padding=1, bias=False
             )
             down = [downrelu, downconv]
             up = [uprelu, upconv, upnorm]
@@ -125,11 +128,31 @@ class UnetSkipConnectionBlock(nn.Module):
 
         self.model = nn.Sequential(*model)
 
+        if innermost:
+            n_classes = 3
+            embedding_dim = 100
+            # Label encoder
+            self.label_conditioned_generator = nn.Sequential(
+                nn.Embedding(n_classes, embedding_dim),
+                nn.Linear(
+                    embedding_dim, 1
+                ),  # 1 dimension to match the unet innermost layer, but originally this was 16 dimensions (we may lose too much information here)
+            )
+
     def forward(self, x):
+        # split the input into the image and the label
+        contour, label = x
+
         if self.outermost:
-            return self.model(x)
+            return self.model(contour), label
+        elif self.innermost:
+            # At the innermost layer, add label to the input
+            label_output = self.label_conditioned_generator(label)
+            label_output = label_output.view(-1, 1, 1, 1)
+            concat = torch.cat((contour, label_output), dim=1)
+            return torch.cat([contour, self.model(concat)], 1), label
         else:  # add skip connections
-            return torch.cat([x, self.model(x)], 1)
+            return torch.cat([contour, self.model(contour)], 1), label
 
 
 class Discriminator(nn.Module):
