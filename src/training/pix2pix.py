@@ -72,14 +72,14 @@ def train(
             # train discriminator with fake/generated images
             disc_inp_fake = torch.cat((input_img, generated_image), 1)
 
-            D_fake = discriminator(disc_inp_fake.detach())
+            D_fake = discriminator((disc_inp_fake.detach(), label))
 
             D_fake_loss = discriminator_loss(D_fake, fake_target)
 
             # train discriminator with real images
             disc_inp_real = torch.cat((input_img, target_img), 1)
 
-            D_real = discriminator(disc_inp_real)
+            D_real = discriminator((disc_inp_real,label))
             D_real_loss = discriminator_loss(D_real, real_target)
 
             # average discriminator loss
@@ -92,7 +92,7 @@ def train(
             # Train generator with real labels
             G_optimizer.zero_grad()
             fake_gen = torch.cat((input_img, generated_image), 1)
-            G = discriminator(fake_gen)
+            G = discriminator((fake_gen, label))
             G_loss = generator_loss(generated_image, target_img, G, real_target)
             G_loss_list.append(G_loss)
             # compute gradients and run optimizer step

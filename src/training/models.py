@@ -170,8 +170,9 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         kw = 4
         padw = 1
+        # Add 3 channels for label input
         sequence = [
-            nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
+            nn.Conv2d(input_nc+3, ndf, kernel_size=kw, stride=2, padding=padw),
             nn.LeakyReLU(0.2, True),
         ]
         nf_mult = 1
@@ -213,6 +214,12 @@ class Discriminator(nn.Module):
         ]  # output 1 channel prediction map
         self.model = nn.Sequential(*sequence)
 
+        embedding_dim = 100
+        self.label_condition_disc = nn.Sequential(nn.Embedding(3, embedding_dim), nn.Linear(embedding_dim, 3*256*256))
+
     def forward(self, input):
-        """Standard forward."""
-        return self.model(input)
+        img, label = input
+        label_output = self.label_condition_disc(label)
+        label_output = label_output.view(-1, 3, 256, 256)
+        concat = torch.cat((img, label_output), dim=1)
+        return self.model(concat)
