@@ -60,6 +60,7 @@ def train(
             D_optimizer.zero_grad()
             input_img = input_img.to(device)
             target_img = target_img.to(device)
+            label = label.type(torch.int32).to(device)
 
             # ground truth labels real and fake
             real_target = Variable(torch.ones(input_img.size(0), 1, 30, 30).to(device))
@@ -95,6 +96,7 @@ def train(
             G_loss = generator_loss(generated_image, target_img, G, real_target)
             G_loss_list.append(G_loss)
             # compute gradients and run optimizer step
+            torch.autograd.set_detect_anomaly(True)
             G_loss.backward()
             G_optimizer.step()
 

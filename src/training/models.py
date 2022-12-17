@@ -70,7 +70,9 @@ class UnetGenerator(nn.Module):
 
     def forward(self, input):
         """Standard forward"""
-        return self.model(input)
+        contour, label = input
+        self.model.current_label = label
+        return self.model(contour)
 
 
 class UnetSkipConnectionBlock(nn.Module):
@@ -86,6 +88,7 @@ class UnetSkipConnectionBlock(nn.Module):
         use_dropout=False,
     ):
         super(UnetSkipConnectionBlock, self).__init__()
+        self.current_label = None
         self.outermost = outermost
         self.innermost = innermost
         if input_nc is None:
@@ -106,14 +109,19 @@ class UnetSkipConnectionBlock(nn.Module):
             up = [uprelu, upconv, nn.Tanh()]
             model = down + [submodule] + up
         elif innermost:
-            # Add label to innermost layer, so increase input channel size by 1
+            # Add label to innermost layer, so increase downconv channel size by 1
             # (512,1,1) -> (513,1,1)
-            upconv = nn.ConvTranspose2d(
-                inner_nc + 1, outer_nc, kernel_size=4, stride=2, padding=1, bias=False
+            downconv_inner = nn.Conv2d(
+            input_nc+1, inner_nc+1, kernel_size=4, stride=2, padding=1, bias=False
             )
-            down = [downrelu, downconv]
+            upconv = nn.ConvTranspose2d(
+                inner_nc, outer_nc, kernel_size=4, stride=2, padding=1, bias=False
+            )
+            reduce_dim = torch.nn.Conv2d(in_channels=513, out_channels=512, kernel_size=1)
+            down = [downrelu, downconv_inner]
+            reduce_dim_layer = [reduce_dim, nn.ReLU(True)]
             up = [uprelu, upconv, upnorm]
-            model = down + up
+            model = down + reduce_dim_layer + up
         else:
             upconv = nn.ConvTranspose2d(
                 inner_nc * 2, outer_nc, kernel_size=4, stride=2, padding=1, bias=False
@@ -135,24 +143,26 @@ class UnetSkipConnectionBlock(nn.Module):
             self.label_conditioned_generator = nn.Sequential(
                 nn.Embedding(n_classes, embedding_dim),
                 nn.Linear(
-                    embedding_dim, 1
+                    embedding_dim, 4
                 ),  # 1 dimension to match the unet innermost layer, but originally this was 16 dimensions (we may lose too much information here)
             )
 
     def forward(self, x):
-        # split the input into the image and the label
-        contour, label = x
+        self.model.current_label = self.current_label
+        for m in self.model:
+            if isinstance(m, UnetSkipConnectionBlock):
+                m.current_label = self.current_label
 
         if self.outermost:
-            return self.model(contour), label
+            return self.model(x)
         elif self.innermost:
             # At the innermost layer, add label to the input
-            label_output = self.label_conditioned_generator(label)
-            label_output = label_output.view(-1, 1, 1, 1)
-            concat = torch.cat((contour, label_output), dim=1)
-            return torch.cat([contour, self.model(concat)], 1), label
+            label_output = self.label_conditioned_generator(self.current_label)
+            label_output = label_output.view(-1, 1, 2, 2)
+            concat = torch.cat((x, label_output), dim=1)
+            return torch.cat([x, self.model(concat)], 1)
         else:  # add skip connections
-            return torch.cat([contour, self.model(contour)], 1), label
+            return torch.cat([x, self.model(x)], 1)
 
 
 class Discriminator(nn.Module):
