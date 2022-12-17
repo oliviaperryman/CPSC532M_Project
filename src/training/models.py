@@ -119,7 +119,7 @@ class UnetSkipConnectionBlock(nn.Module):
             )
             reduce_dim = torch.nn.Conv2d(in_channels=513, out_channels=512, kernel_size=1)
             down = [downrelu, downconv_inner]
-            reduce_dim_layer = [reduce_dim, nn.ReLU(True)]
+            reduce_dim_layer = [reduce_dim]
             up = [uprelu, upconv, upnorm]
             model = down + reduce_dim_layer + up
         else:
