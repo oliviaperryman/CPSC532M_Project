@@ -101,7 +101,7 @@ def train(
             G_optimizer.step()
 
         # Save checkpoints
-        if epoch % 1 == 0:
+        if epoch % 5 == 0:
             print("saving model")
             # test(generator, train_dl, epoch, device)  # TODO change to valid_dl
             torch.save(
@@ -140,7 +140,7 @@ def save_images(images, path, nrow=8, normalize=True):
 
 
 if __name__ == "__main__":
-    batch_size = 4
+    batch_size = 32
 
     train_ds = afhqDataset()
     train_dl = DataLoader(train_ds, batch_size, shuffle=True)
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999)
     )
     epoch = 1
-    resume = False
+    resume = True
     if resume:
         print("loading model")
         checkpoints = sorted(glob.glob("checkpoints_pixandtext/*.pth"))
