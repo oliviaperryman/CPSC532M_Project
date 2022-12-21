@@ -12,13 +12,15 @@ def test(generator, val_dl, epoch, device):
     inputs = input_img.to(device)
     label = label.type(torch.int32).to(device)
     generated_output = generator((inputs, label))
-    fig = plt.figure(figsize=(2, 10))
+    fig = plt.figure(figsize=(10, 2))
 
+    labels = {0: "Cat", 1: "Dog", 2: "Wild"}
     for i in range(batch_size):
-        fig.add_subplot(batch_size, 2, i * 2 + 1)
+        fig.add_subplot(2,batch_size, i + 1)
         plt.imshow(input_img[i].cpu().detach().permute(1, 2, 0))
         plt.axis("off")
-        fig.add_subplot(batch_size, 2, i * 2 + 2)
+        plt.title(labels[label.cpu().detach().numpy()[i]])
+        fig.add_subplot(2, batch_size, i + 11)
         plt.imshow(generated_output[i].cpu().detach().permute(1, 2, 0))
         plt.axis("off")
 
@@ -36,7 +38,7 @@ def save_images(images, path, nrow=8, normalize=True):
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size = 10
-    train_ds = afhqDataset()
+    train_ds = afhqDataset(split="val")
     train_dl = DataLoader(train_ds, batch_size, shuffle=True)
 
     generator = (
@@ -45,7 +47,7 @@ if __name__ == "__main__":
         .float()
     )
 
-    checkpoint = torch.load("checkpoints_pixandtext/models_2.pth")
+    checkpoint = torch.load("checkpoints_pixandtext2/models_5.pth")
     generator.load_state_dict(checkpoint["generator_state_dict"])
     generator.eval()
     epoch = checkpoint["epoch"]

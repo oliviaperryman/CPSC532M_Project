@@ -82,8 +82,14 @@ def train(
             D_real = discriminator((disc_inp_real,label))
             D_real_loss = discriminator_loss(D_real, real_target)
 
+            # train discriminator with real images and wrong labels
+            switch_label = [1,0,0]
+            wrong_labels = torch.Tensor([switch_label[x] for x in label]).type(torch.int32).to(device)
+            D_real_wrong_label = discriminator((disc_inp_real, wrong_labels))
+            D_real_wrong_label_loss = discriminator_loss(D_real_wrong_label, fake_target)
+
             # average discriminator loss
-            D_total_loss = (D_real_loss + D_fake_loss) / 2
+            D_total_loss = (D_real_loss + D_fake_loss + D_real_wrong_label_loss) / 3
             D_loss_list.append(D_total_loss)
             # compute gradients and run optimizer step
             D_total_loss.backward()
@@ -114,7 +120,7 @@ def train(
                     "G_loss": G_loss,
                     "D_loss": D_total_loss,
                 },
-                f"checkpoints_pixandtext/models_{epoch}.pth",
+                f"checkpoints_pixandtext2/models_{epoch}.pth",
             )
 
     return generator, discriminator
@@ -168,7 +174,7 @@ if __name__ == "__main__":
     resume = True
     if resume:
         print("loading model")
-        checkpoints = sorted(glob.glob("checkpoints_pixandtext/*.pth"))
+        checkpoints = sorted(glob.glob("checkpoints_pixandtext2/*.pth"))
         print(checkpoints[-1])
         checkpoint = torch.load(checkpoints[-1])
         generator.load_state_dict(checkpoint["generator_state_dict"])
